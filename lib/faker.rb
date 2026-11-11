@@ -38,8 +38,18 @@ module Faker
         Thread.current[:faker_config_random] = new_random
       end
 
+      # The source of entropy for all generators.
+      #
+      # Falls back to a single Random instance dedicated to Faker (seeded from
+      # OS entropy on first use) rather than the +Random+ module itself. The
+      # module's global state is shared with +Kernel#rand+, +Array#sample+,
+      # +srand+, and any other code in the process calling those, which makes
+      # generated values depend on how many random calls each preceding test
+      # happened to make. That hidden global counter creates order dependencies
+      # between tests and pathological data for tools like "rspec --bisect"
+      # (issue #2720).
       def random
-        Thread.current[:faker_config_random] || Random
+        Thread.current[:faker_config_random] || (@process_random ||= ::Random.new)
       end
 
       def lazy_loading?
