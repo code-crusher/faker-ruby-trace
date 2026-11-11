@@ -36,6 +36,16 @@ class TestPtBrLocale < Test::Unit::TestCase
     assert Faker::Address.default_country, 'Brasil'
   end
 
+  def test_pt_br_state_abbreviations_match_their_states
+    states = I18n.translate('faker.address.state', locale: 'pt-BR')
+    abbreviations = I18n.translate('faker.address.state_abbr', locale: 'pt-BR')
+
+    assert_equal states.size, abbreviations.size
+    assert_equal 'MG', abbreviations[states.index('Minas Gerais')]
+    assert_equal 'SP', abbreviations[states.index('São Paulo')]
+    assert_equal 'TO', abbreviations[states.index('Tocantins')]
+  end
+
   def test_pt_br_phone_methods
     assert_equal('+55', Faker::PhoneNumber.country_code)
   end

@@ -4,6 +4,12 @@ module Faker
   class Address < Base
     flexible :address
 
+    COUNTRY_ATTRIBUTES = %i[country country_code country_by_code country_name_to_code].freeze
+    STATE_ATTRIBUTES = %i[state state_abbr].freeze
+    POSTCODE_ATTRIBUTES = %i[zip_code zip postcode].freeze
+
+    private_constant :COUNTRY_ATTRIBUTES, :STATE_ATTRIBUTES, :POSTCODE_ATTRIBUTES
+
     class << self
       ##
       # Produces the name of a city.
@@ -315,7 +321,19 @@ module Faker
       end
 
       ##
-      # Produces Address hash of required fields
+      # Produces Address hash of required fields.
+      #
+      # Related fields are drawn from a single address, so that they stay
+      # consistent with each other: +country+, +country_code+ and
+      # +country_name_to_code+ describe the same country, +state+ and
+      # +state_abbr+ describe the same state, and +zip_code+ (as well as its
+      # +zip+ and +postcode+ aliases) uses the format of the generated state.
+      #
+      # Pinning one field also pins the ones it implies. For example, passing
+      # +country_name_to_code: { name: 'united_states' } makes +country+ and
+      # +country_code+ describe the United States too, and passing
+      # +zip_code: { state_abbreviation: 'CO' } makes +state+ and +state_abbr+
+      # describe Colorado.
       #
       # @return [Hash]
       #
@@ -335,13 +353,157 @@ module Faker
       #  Faker::Address.full_address_as_hash(:street_address, street_address: {include_secondary: true})
       #     #=> {:street_address=>"29423 Kenneth Causeway Suite 563"}
       #
+      #  Faker::Address.full_address_as_hash(:country, :country_code, :state, :state_abbr, :zip_code)
+      #     #=> {:country=>"Peru", :country_code=>"PE", :state=>"California", :state_abbr=>"CA", :zip_code=>"90073"}
+      #
+      #  Faker::Address.full_address_as_hash(:state, :state_abbr, :zip_code, zip_code: {state_abbreviation: 'CO'})
+      #     #=> {:state=>"Colorado", :state_abbr=>"CO", :zip_code=>"80082"}
+      #
       # @faker.version 2.13.0
       def full_address_as_hash(*attrs, **attrs_params)
         attrs.map!(&:to_sym)
         attrs_params.transform_keys!(&:to_sym)
+
+        context = consistent_address_context(attrs, attrs_params)
+
         attrs.map do |attr|
-          { "#{attr}": attrs_params[attr] ? send(attr, **attrs_params[attr]) : send(attr) }
+          value = if attrs_params[attr]
+                    send(attr, **attrs_params[attr])
+                  elsif context.key?(attr)
+                    context[attr]
+                  else
+                    send(attr)
+                  end
+          { "#{attr}": value }
         end.reduce({}, :merge)
+      end
+
+      private
+
+      # Builds the values of all requested fields that have to agree with each
+      # other. Fields whose data is missing in the current locale are left out,
+      # so they keep their previous, independent behavior.
+      def consistent_address_context(attrs, attrs_params)
+        country_fields = attrs & COUNTRY_ATTRIBUTES
+        state_fields = attrs & STATE_ATTRIBUTES
+        postcode_fields = attrs & POSTCODE_ATTRIBUTES
+        pinned_abbr = pinned_state_abbreviation(attrs_params)
+
+        context = {}
+        if country_fields.size > 1 || pinned_country?(attrs_params)
+          context.merge!(consistent_country(attrs_params))
+        end
+
+        if state_fields.size > 1 || (state_fields.any? && postcode_fields.any?)
+          context.merge!(consistent_state(pinned_abbr))
+        end
+
+        if postcode_fields.size > 1 || (postcode_fields.any? && state_fields.any?)
+          context.merge!(consistent_postcode(pinned_abbr || context[:state_abbr]))
+        end
+
+        context
+      end
+
+      # Whether the caller passed one of the country arguments that the other
+      # country fields should be derived from.
+      def pinned_country?(attrs_params)
+        attrs_params[:country_by_code]&.key?(:code) || attrs_params[:country_name_to_code]&.key?(:name)
+      end
+
+      # The state abbreviation the caller pinned through +zip_code+'s
+      # +state_abbreviation+ argument, if any.
+      def pinned_state_abbreviation(attrs_params)
+        pinned = POSTCODE_ATTRIBUTES.filter_map { |attr| attrs_params[attr]&.dig(:state_abbreviation) }
+        pinned.reject { |abbr| abbr.to_s.empty? }.first
+      end
+
+      # Returns the country name and code of the same country. When the caller
+      # pinned a country, that country is used; otherwise one is picked from the
+      # country/code mapping that applies to the locale.
+      def consistent_country(attrs_params)
+        locale = country_mapping_locale
+        code = pinned_country_code(attrs_params)
+
+        if code
+          code = code.to_s
+          name = translate("faker.address.country_by_code.#{code}", locale: locale)
+        else
+          code, name = sample(translate('faker.address.country_by_code', locale: locale).to_a)
+          code = code.to_s
+        end
+
+        { country: name, country_code: code, country_by_code: name, country_name_to_code: code }
+      end
+
+      # The locale whose country/code mapping is used to keep the country fields
+      # consistent. It is the current locale when it has its own mapping, and
+      # English otherwise, because the country code always falls back to English
+      # when a locale has no mapping of its own. The country name is then taken
+      # from the same mapping, so name and code always describe the same place.
+      def country_mapping_locale
+        locale = Faker::Config.locale
+        return locale if locale_translation?('address.country_by_code', locale: locale)
+
+        :en
+      end
+
+      def pinned_country_code(attrs_params)
+        if attrs_params[:country_by_code]&.key?(:code)
+          attrs_params[:country_by_code][:code]
+        elsif attrs_params[:country_name_to_code]&.key?(:name)
+          country_name_to_code(**attrs_params[:country_name_to_code])
+        end
+      end
+
+      # Pairs a state name with its abbreviation. Both lists have to describe the
+      # same places and line up, so this only pairs them when the locale defines
+      # both or when the one it defines is the English list that the other one
+      # falls back to. Otherwise the fields keep their previous, independent
+      # behavior.
+      def consistent_state(pinned_abbr = nil)
+        return {} unless same_state_data_source?
+
+        states = Array(translate('faker.address.state'))
+        abbreviations = Array(translate('faker.address.state_abbr'))
+        return {} unless states.size == abbreviations.size && states.size > 1
+
+        index = pinned_abbr ? abbreviations.index(pinned_abbr) : rand(states.size)
+        return {} if index.nil?
+
+        { state: states[index], state_abbr: abbreviations[index] }
+      end
+
+      # Whether the state and abbreviation lists come from the same source. A
+      # locale that defines one of them gets the other one from the English
+      # fallback, which is only the same list when the defined one is English
+      # too (as in en-US, which overrides only the abbreviations).
+      def same_state_data_source?
+        locale = Faker::Config.locale
+        own_state = locale_translation?('address.state', locale: locale)
+        own_abbr = locale_translation?('address.state_abbr', locale: locale)
+        return true if own_state == own_abbr
+
+        defined_key = own_state ? 'address.state' : 'address.state_abbr'
+        Array(translate("faker.#{defined_key}")) == Array(translate("faker.#{defined_key}", locale: :en))
+      end
+
+      # Uses the postcode format of the generated state when the locale knows
+      # one, so that the postcode agrees with the state.
+      def consistent_postcode(state_abbr)
+        value = if state_abbr && locale_translation?("address.postcode_by_state.#{state_abbr}", locale: Faker::Config.locale)
+                  zip_code(state_abbreviation: state_abbr)
+                else
+                  zip_code
+                end
+
+        { zip_code: value, zip: value, postcode: value }
+      end
+
+      # Whether the given locale defines the translation itself, rather than
+      # inheriting the English one through Faker's fallback.
+      def locale_translation?(key, locale: Faker::Config.locale)
+        I18n.exists?("faker.#{key}", locale: locale)
       end
     end
   end

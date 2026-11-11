@@ -33,6 +33,17 @@ class TestFrCaLocale < Test::Unit::TestCase
     assert_equal('Canada', Faker::Address.default_country)
   end
 
+  def test_fr_ca_state_abbreviations_match_their_states
+    states = I18n.translate('faker.address.state', locale: 'fr-CA')
+    abbreviations = I18n.translate('faker.address.state_abbr', locale: 'fr-CA')
+
+    assert_equal states.size, abbreviations.size
+    assert_equal 'PE', abbreviations[states.index('Île-du-Prince-Édouard')]
+    assert_equal 'NL', abbreviations[states.index('Terre-Neuve-et-Labrador')]
+    assert_equal 'NT', abbreviations[states.index('Territoires du Nord-Ouest')]
+    assert_equal 'ON', abbreviations[states.index('Ontario')]
+  end
+
   def test_fr_ca_book_methods
     assert_kind_of String, Faker::Book.title
     assert_kind_of String, Faker::Book.author

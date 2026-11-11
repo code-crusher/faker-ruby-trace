@@ -19,14 +19,14 @@ fr-CA:
       state_abbr:
         - AB
         - BC
+        - PE
         - MB
         - NB
-        - NL
         - NS
         - NU
-        - NT
         - 'ON'
-        - PE
+        - NL
+        - NT
         - QC
         - SK
         - YT

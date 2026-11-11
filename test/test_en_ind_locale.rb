@@ -20,6 +20,17 @@ class TestEnIndLocale < Test::Unit::TestCase
     assert_match(/(\w+\.? ?){2,3}/, Faker::Address.city)
   end
 
+  def test_en_ind_state_abbreviations_match_their_states
+    states = I18n.translate('faker.address.state', locale: 'en-IND')
+    abbreviations = I18n.translate('faker.address.state_abbr', locale: 'en-IND')
+
+    assert_equal states.size, abbreviations.size
+    assert_equal 'Andhra Pradesh', states.first
+    assert_equal 'AP', abbreviations.first
+    assert_equal 'Pondicherry', states.last
+    assert_equal 'PY', abbreviations.last
+  end
+
   def test_en_ind_company_methods
     assert_kind_of String, Faker::Company.suffix
   end

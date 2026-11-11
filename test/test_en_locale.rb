@@ -22,6 +22,23 @@ class TestEnLocale < Test::Unit::TestCase
     assert_match(expected, Faker::Address.zip_code)
   end
 
+  def test_country_by_name_returns_a_code_known_to_country_by_code
+    countries = I18n.translate('faker.address.country_by_name')
+
+    countries.each do |name, code|
+      assert_equal(
+        code,
+        Faker::Address.country_name_to_code(name: name),
+        "country_by_name.#{name} should match its country_by_code entry"
+      )
+      assert_equal(
+        I18n.translate("faker.address.country_by_code.#{code}"),
+        Faker::Address.country_by_code(code: code),
+        "country_by_name.#{name} points at an unknown code"
+      )
+    end
+  end
+
   def test_valid_id_number
     id_num = Faker::IdNumber.valid
 

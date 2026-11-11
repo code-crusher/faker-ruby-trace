@@ -50,6 +50,15 @@ class TestEnCaLocale < Test::Unit::TestCase
     assert_kind_of(String, Faker::PhoneNumber.exchange_code)
   end
 
+  def test_en_ca_state_abbreviations_match_their_states
+    states = I18n.translate('faker.address.state', locale: 'en-CA')
+    abbreviations = I18n.translate('faker.address.state_abbr', locale: 'en-CA')
+
+    assert_equal states.size, abbreviations.size
+    assert_equal 'NT', abbreviations[states.index('Northwest Territories')]
+    assert_equal 'NU', abbreviations[states.index('Nunavut')]
+  end
+
   def test_validity_of_phone_method_output
     # got the following regex from http://stackoverflow.com/a/123666/1210055 as an expression of the NANP standard.
     ca_number_validation_regex = /^(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?$/

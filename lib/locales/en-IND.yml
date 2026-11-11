@@ -1201,13 +1201,12 @@ en-IND:
         - AS
         - BR
         - CG
-        - DL
         - GA
         - GJ
         - HR
         - HP
         - JK
-        - JS
+        - JH
         - KA
         - KL
         - MP
@@ -1222,13 +1221,14 @@ en-IND:
         - SK
         - TN
         - TR
-        - UK
+        - UT
         - UP
         - WB
         - AN
         - CH
         - DN
         - DD
+        - DL
         - LD
         - PY
       default_country:

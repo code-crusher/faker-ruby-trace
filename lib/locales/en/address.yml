@@ -528,7 +528,7 @@ en:
         ZW: Zimbabwe
       country_by_name:
         afghanistan: AF
-        albania: AB
+        albania: AL
         algeria: DZ
         american_samoa: AS
         andorra: AD
@@ -607,7 +607,7 @@ en:
         gambia: GM
         georgia: GE
         germany: DE
-        ghana: 'GH:'
+        ghana: GH
         gibraltar: GI
         greece: GR
         greenland: GL
@@ -686,7 +686,7 @@ en:
         nigeria: NG
         niue: NU
         norfolk_island: NF
-        northern_mariana_islands: NP
+        northern_mariana_islands: MP
         norway: 'NO'
         oman: OM
         pakistan: PK
@@ -751,7 +751,7 @@ en:
         tuvalu: TV
         uganda: UG
         ukraine: UA
-        united_arab_emirates: ''
+        united_arab_emirates: AE
         united_kingdom: GB
         united_states: US
         united_states_minor_outlying_islands: UM
